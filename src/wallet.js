@@ -630,7 +630,7 @@ export async function refreshAllBalances() {
     const balanceElement = document.getElementById('totalBalance');
     if (balanceElement) {
       const balanceText = getTranslation('import_section.balance', 'Balance:');
-      balanceElement.textContent = `${balanceText} ${totalBalance.toFixed(8)} NITO`;
+      balanceElement.textContent = `${balanceText} ${totalBalance.toFixed(8)} ${window.BLOCKCHAIN_CONFIG.UNITS.symbol}`;
     }
     
     const sendTabBalance = document.getElementById('sendTabBalance');
