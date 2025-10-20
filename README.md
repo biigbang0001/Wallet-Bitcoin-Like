@@ -1,820 +1,911 @@
-# 📘 GUIDE COMPLET D'ADAPTATION DE A À Z
+# 🔧 Guide complet : Adapter le wallet à une nouvelle blockchain
 
-## 🎯 VUE D'ENSEMBLE
-
-Tu as un wallet web qui fonctionne actuellement pour BC2. Pour l'adapter à une autre blockchain (Bitcoin, Litecoin, Dogecoin, etc.), tu dois :
-
-1. ✅ **MODIFIER 1 SEUL FICHIER** : `src/blockchain-config.js`
-2. ✅ **AJOUTER 1 LOGO** : `./nom-blockchain.png`
-3. ✅ **CONFIGURER NGINX** : Pointer vers ton nœud RPC
-4. ✅ **TESTER** : Vérifier que tout fonctionne
-
-**Temps estimé : 15-30 minutes**
+> **Temps estimé** : 30-60 minutes  
+> **Niveau** : Intermédiaire  
+> **Prérequis** : Un nœud RPC de la blockchain cible doit être en fonction
 
 ---
 
-## 📂 ÉTAPE 1 : STRUCTURE DES FICHIERS
+## 📋 Table des matières
 
-### Structure actuelle de ton projet :
-
-```
-/var/www/wallet-bc2/
-├── index.html                    ← Ne PAS modifier
-├── bc2.png                       ← Remplacer par ton logo
-├── locales/
-│   ├── en.json                   ← Optionnel : traduire
-│   ├── fr.json
-│   └── ...
-├── src/
-│   ├── blockchain-config.js      ← ⭐ SEUL FICHIER À MODIFIER
-│   ├── app.js                    ← Ne PAS modifier
-│   ├── config.js                 ← Ne PAS modifier
-│   ├── wallet.js                 ← Ne PAS modifier
-│   ├── blockchain.js             ← Ne PAS modifier
-│   ├── transactions.js           ← Ne PAS modifier
-│   ├── security.js               ← Ne PAS modifier
-│   ├── ui-handlers.js            ← Ne PAS modifier
-│   ├── ui-popups.js              ← Ne PAS modifier
-│   ├── events.js                 ← Ne PAS modifier
-│   ├── encryption.js             ← Ne PAS modifier
-│   ├── rpc-manager.js            ← Ne PAS modifier
-│   ├── vendor.js                 ← Ne PAS modifier
-│   └── secure-operations.js      ← Ne PAS modifier
-├── dist/
-│   └── vendor-bundle.min.js      ← Ne PAS modifier
-├── api/
-│   └── get-counter.php           ← Ne PAS modifier
-└── data/
-    └── counter.txt               ← Ne PAS modifier
-```
+1. [Vue d'ensemble](#vue-densemble)
+2. [Prérequis](#prérequis)
+3. [Étape 1 : Collecter les informations](#étape-1--collecter-les-informations)
+4. [Étape 2 : Modifier blockchain-config.js](#étape-2--modifier-blockchain-configjs)
+5. [Étape 3 : Ajouter le logo](#étape-3--ajouter-le-logo)
+6. [Étape 4 : Configurer Nginx](#étape-4--configurer-nginx)
+7. [Étape 5 : Tester le wallet](#étape-5--tester-le-wallet)
+8. [Dépannage](#dépannage)
+9. [Cas particuliers](#cas-particuliers)
 
 ---
 
-## 🔧 ÉTAPE 2 : LE FICHIER blockchain-config.js
+## 🎯 Vue d'ensemble
 
-### Localisation
-**Chemin** : `/var/www/wallet-bc2/src/blockchain-config.js`
+Ce wallet web est conçu pour être facilement adapté à **n'importe quelle blockchain Bitcoin-like**. Il suffit de modifier **1 seul fichier** : `src/blockchain-config.js`.
 
-### Que contient ce fichier ?
-Ce fichier contient **TOUTES** les informations spécifiques à la blockchain :
-- Nom et symbole
-- Paramètres réseau (préfixes d'adresses)
-- Chemins de dérivation HD (BIP44)
-- URLs des nœuds RPC
-- URLs de l'explorateur
-- Paramètres de fees
-- Features activées
+### Ce qui est modifié
+- ✅ `src/blockchain-config.js` (configuration blockchain)
+- ✅ `./logo.png` (logo de la blockchain)
+- ✅ Configuration Nginx (proxy RPC)
 
-### Pourquoi UN SEUL fichier ?
-Tous les autres fichiers JavaScript (app.js, wallet.js, blockchain.js, etc.) **importent** ce fichier et utilisent ses valeurs. Quand tu modifies `blockchain-config.js`, TOUT le wallet s'adapte automatiquement.
+### Ce qui reste identique
+- ❌ Tous les autres fichiers JavaScript
+- ❌ La structure HTML
+- ❌ Les traductions (optionnel)
 
 ---
 
-## 📝 ÉTAPE 3 : INFORMATIONS À COLLECTER
+## 🔧 Prérequis
 
-Avant de modifier le fichier, tu dois collecter ces informations sur ta blockchain cible.
+Avant de commencer, assurez-vous d'avoir :
 
-### 3.1 - Informations de base
+1. **Un nœud RPC fonctionnel** de la blockchain cible
+   - Synchronisé
+   - RPC activé (rpcuser, rpcpassword, rpcport configurés)
+   - Accessible depuis votre serveur web
 
-| Information | Exemple Bitcoin | Exemple Litecoin | Où trouver ? |
-|------------|-----------------|------------------|--------------|
-| **Nom court** | `BTC` | `LTC` | Site officiel |
-| **Nom complet** | `Bitcoin` | `Litecoin` | Site officiel |
-| **Symbole** | `BTC` | `LTC` | Site officiel |
-| **Logo** | btc.png (256x256px) | ltc.png | Site officiel / Google Images |
+2. **Accès SSH au serveur** où le wallet est hébergé
 
-### 3.2 - Paramètres réseau (CRITIQUE!)
-
-Ces valeurs déterminent le format des adresses. **Si elles sont fausses, les adresses générées seront invalides.**
-
-| Paramètre | Bitcoin | Litecoin | Dogecoin | Où trouver ? |
-|-----------|---------|----------|----------|--------------|
-| **bech32 prefix** | `bc` | `ltc` | `doge` | Documentation technique |
-| **pubKeyHash** | `0x00` | `0x30` | `0x1E` | Repo GitHub (chainparams.cpp) |
-| **scriptHash** | `0x05` | `0x32` | `0x16` | Repo GitHub (chainparams.cpp) |
-| **wif** | `0x80` | `0xB0` | `0x9E` | Repo GitHub (chainparams.cpp) |
-| **xpub version** | `0x0488B21E` | `0x019DA462` | `0x02FACAFD` | Repo GitHub (chainparams.cpp) |
-| **xprv version** | `0x0488ADE4` | `0x019D9CFE` | `0x02FAC398` | Repo GitHub (chainparams.cpp) |
-
-#### 📍 Où trouver ces valeurs EXACTEMENT ?
-
-**Méthode 1 - Repository GitHub officiel** :
-1. Va sur GitHub : `https://github.com/[blockchain-project]/[blockchain-name]`
-2. Cherche le fichier : `src/chainparams.cpp` ou `src/validation.cpp`
-3. Cherche les lignes contenant :
-   - `base58Prefixes[PUBKEY_ADDRESS]` → `pubKeyHash`
-   - `base58Prefixes[SCRIPT_ADDRESS]` → `scriptHash`
-   - `base58Prefixes[SECRET_KEY]` → `wif`
-   - `base58Prefixes[EXT_PUBLIC_KEY]` → `xpub`
-   - `bech32_hrp` → `bech32 prefix`
-
-**Méthode 2 - Documentation existante** :
-- Bitcoin Wiki
-- Blockchain Explorer (blockchair.com)
-- Developer documentation
-
-**Exemple pour Litecoin** :
-```cpp
-// Dans litecoin/src/chainparams.cpp
-base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,48);  // 0x30
-base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,50);  // 0x32
-base58Prefixes[SECRET_KEY] = std::vector<unsigned char>(1,176);     // 0xB0
-bech32_hrp = "ltc";
-```
-
-### 3.3 - Coin Type (BIP44)
-
-Chaque blockchain a un numéro unique selon BIP44.
-
-| Blockchain | Coin Type | Chemin HD |
-|------------|-----------|-----------|
-| Bitcoin | 0 | `m/44'/0'/0'` |
-| Testnet | 1 | `m/44'/1'/0'` |
-| Litecoin | 2 | `m/44'/2'/0'` |
-| Dogecoin | 3 | `m/44'/3'/0'` |
-| Dash | 5 | `m/44'/5'/0'` |
-
-**Liste complète** : https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-
-### 3.4 - Nœud RPC
-
-Tu as besoin d'un nœud RPC accessible :
-- **IP** : Adresse IP du nœud (ex: 127.0.0.1)
-- **Port** : Port RPC (ex: 8332 pour Bitcoin)
-- **User** : Username RPC (dans bitcoin.conf)
-- **Password** : Password RPC (dans bitcoin.conf)
-
-**Configuration du nœud** (`~/.bitcoin/bitcoin.conf` ou équivalent) :
-```conf
-server=1
-rpcuser=votreuser
-rpcpassword=votrepass
-rpcallowip=127.0.0.1
-rpcport=8332
-```
-
-### 3.5 - Explorateur de blocs
-
-URL de l'explorateur public (ex: blockstream.info pour Bitcoin).
-
-| Blockchain | Explorateur Principal |
-|------------|----------------------|
-| Bitcoin | https://blockstream.info |
-| Litecoin | https://blockchair.com/litecoin |
-| Dogecoin | https://dogechain.info |
-
-### 3.6 - Fees et Dust
-
-| Paramètre | Bitcoin | Litecoin | Dogecoin | Description |
-|-----------|---------|----------|----------|-------------|
-| **minFeeRate** | 0.00001 | 0.00001 | 0.01 | Frais minimum (BTC/kB) |
-| **Dust amount** | 546 sats | 546 sats | 10M sats | Montant minimal UTXO |
+3. **Les informations suivantes** :
+   - Nom de la blockchain
+   - Symbole (ticker)
+   - Logo (PNG 256x256px minimum)
+   - URL d'un explorateur de blocs
 
 ---
 
-## 🛠️ ÉTAPE 4 : MODIFIER blockchain-config.js
+## 📝 Étape 1 : Collecter les informations
 
-### 4.1 - Ouvrir le fichier
+### 1.1 - Informations de base
+
+| Information | Exemple | Votre valeur |
+|------------|---------|--------------|
+| Nom court | `FIX` | _________ |
+| Nom complet | `FixrdCoin` | _________ |
+| Symbole | `FIX` | _________ |
+| URL explorateur | `https://explorer.fixedcoin.org` | _________ |
+
+### 1.2 - Vérifier le coin_type (BIP44)
+
+**TRÈS IMPORTANT** : Le `coin_type` doit correspondre à celui utilisé par le wallet officiel de votre blockchain.
+
+#### Méthode 1 : Depuis le wallet officiel (RECOMMANDÉ)
+
+Si vous avez accès au wallet officiel de votre blockchain :
 
 ```bash
-cd /var/www/wallet-bc2/src
-nano blockchain-config.js
+# Créer un wallet temporaire
+your-coin-cli createwallet "test"
+
+# Obtenir les descriptors
+your-coin-cli listdescriptors
+
+# Cherchez les lignes contenant :
+# - .../44'/X'/0'... → coin_type pour Legacy
+# - .../84'/X'/0'... → coin_type pour Bech32
+# - .../86'/X'/0'... → coin_type pour Taproot
+
+# Supprimer le wallet test
+your-coin-cli unloadwallet "test"
 ```
 
-### 4.2 - Structure du fichier
+**Le numéro X que vous voyez est votre coin_type !**
 
-Le fichier est organisé en sections claires. Voici ce que tu dois modifier :
+#### Méthode 2 : Liste officielle BIP44
 
-#### **Section 1 : BLOCKCHAIN IDENTITY**
-```javascript
-// === BLOCKCHAIN IDENTITY ===
-NAME: 'BTC',              // Remplace par le nom court (ex: LTC, DOGE)
-NAME_LOWER: 'btc',        // Version minuscule (pour localStorage)
-NAME_FULL: 'Bitcoin',     // Nom complet affiché
+Consultez la [liste SLIP-0044](https://github.com/satoshilabs/slips/blob/master/slip-0044.md) :
+
+| Blockchain | Coin Type |
+|------------|-----------|
+| Bitcoin | 0 |
+| Testnet | 1 |
+| Litecoin | 2 |
+| Dogecoin | 3 |
+| Dash | 5 |
+
+**Si votre blockchain n'est pas listée** : Elle utilise probablement `coin_type = 0` (comme Bitcoin).
+
+### 1.3 - Identifier le préfixe Bech32
+
+Générez une adresse Bech32 depuis votre nœud RPC :
+
+```bash
+# Méthode 1 : Via curl (remplacez les credentials)
+curl -X POST http://IP:PORT/ \
+  --user rpcuser:rpcpass \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"1.0","method":"getnewaddress","params":["","bech32"]}'
+
+# Méthode 2 : Via le CLI
+your-coin-cli getnewaddress "" bech32
 ```
 
-**Exemple pour Litecoin** :
-```javascript
-NAME: 'LTC',
-NAME_LOWER: 'ltc',
-NAME_FULL: 'Litecoin',
+**Résultat exemple** : `fix1qsg4vkqksmah5q5v5nr47zhr9l8lgh79tfmly8m`
+
+Le préfixe est : `fix` (tout ce qui est avant le `1`)
+
+### 1.4 - Configuration RPC du nœud
+
+Notez ces informations depuis la config de votre nœud :
+
+```bash
+cat ~/.your-coin/your-coin.conf
 ```
 
-#### **Section 2 : VISUAL ASSETS**
-```javascript
-// === VISUAL ASSETS ===
-LOGO_PATH: './btc.png',      // Chemin vers ton logo
-FAVICON_PATH: './btc.png',   // Même fichier
+| Information | Exemple | Votre valeur |
+|------------|---------|--------------|
+| IP du nœud | `217.160.149.211` | _________ |
+| Port RPC | `24761` | _________ |
+| rpcuser | `user` | _________ |
+| rpcpassword | `pass` | _________ |
+
+### 1.5 - Vérifier les formats d'adresses supportés
+
+Testez tous les formats d'adresses :
+
+```bash
+# Si vous utilisez un proxy Nginx déjà configuré, remplacez l'URL
+WALLET_URL="https://your-wallet-domain.com/api/"
+
+# Legacy (P2PKH)
+curl -X POST $WALLET_URL -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"1.0","method":"getnewaddress","params":["","legacy"]}'
+
+# P2SH-SegWit
+curl -X POST $WALLET_URL -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"1.0","method":"getnewaddress","params":["","p2sh-segwit"]}'
+
+# Bech32 (Native SegWit)
+curl -X POST $WALLET_URL -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"1.0","method":"getnewaddress","params":["","bech32"]}'
+
+# Taproot
+curl -X POST $WALLET_URL -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"1.0","method":"getnewaddress","params":["","bech32m"]}'
 ```
 
-**Exemple pour Litecoin** :
-```javascript
-LOGO_PATH: './ltc.png',
-FAVICON_PATH: './ltc.png',
+**Notez les formats qui fonctionnent** :
+- ✅ Bech32 : Oui / Non
+- ✅ Taproot : Oui / Non
+- ✅ Legacy : Oui / Non
+- ✅ P2SH : Oui / Non
+
+---
+
+## 🛠️ Étape 2 : Modifier blockchain-config.js
+
+### 2.1 - Localiser le fichier
+
+```bash
+cd /var/www/wallet-YOUR-COIN/src
+sudo cp blockchain-config.js blockchain-config.js.backup
+sudo nano blockchain-config.js
 ```
 
-⚠️ **Important** : Le logo doit être à la racine du projet (`/var/www/wallet-bc2/ltc.png`)
+### 2.2 - Sections à modifier
 
-#### **Section 3 : UNITS AND SYMBOLS**
+#### Section 1 : Identité de la blockchain
+
 ```javascript
-// === UNITS AND SYMBOLS ===
+NAME: 'FIX',                    // Votre symbole
+NAME_LOWER: 'fix',              // En minuscules
+NAME_FULL: 'FixrdCoin',         // Nom complet
+```
+
+#### Section 2 : Logo et favicon
+
+```javascript
+LOGO_PATH: './fix.png',         // Nom de votre fichier logo
+FAVICON_PATH: './fix.png',      // Même fichier
+```
+
+#### Section 3 : Unités et symboles
+
+```javascript
 UNITS: {
-  symbol: 'BTC',          // Affiché partout dans l'interface
-  decimals: 8,            // Ne PAS changer (toujours 8 pour Bitcoin-like)
-  satoshiName: 'satoshi'  // Nom de la plus petite unité
+  symbol: 'FIX',                // Symbole affiché partout
+  decimals: 8,                  // Toujours 8 pour Bitcoin-like
+  satoshiName: 'fixoshi'        // Plus petite unité (optionnel)
 },
 ```
 
-**Exemple pour Litecoin** :
-```javascript
-UNITS: {
-  symbol: 'LTC',
-  decimals: 8,
-  satoshiName: 'litoshi'
-},
-```
+#### Section 4 : Paramètres réseau
 
-#### **Section 4 : NETWORK PARAMETERS** ⚠️ CRITIQUE!
-```javascript
-// === NETWORK PARAMETERS ===
-NETWORK: {
-  messagePrefix: '\x18Bitcoin Signed Message:\n',
-  bech32: 'bc',           // Préfixe Bech32 (adresses bc1...)
-  bip32: {
-    public: 0x0488B21E,   // Version xpub
-    private: 0x0488ADE4   // Version xprv
-  },
-  pubKeyHash: 0x00,       // Adresses Legacy (1...)
-  scriptHash: 0x05,       // Adresses P2SH (3...)
-  wif: 0x80               // Format WIF des clés privées
-},
-```
-
-**Exemple pour Litecoin** :
 ```javascript
 NETWORK: {
-  messagePrefix: '\x19Litecoin Signed Message:\n',
-  bech32: 'ltc',          // Adresses ltc1...
+  messagePrefix: '\x18FixrdCoin Signed Message:\n',  // Changez le nom
+  bech32: 'fix',                                      // Préfixe Bech32 trouvé à l'étape 1.3
+  
+  // Ces valeurs sont standard pour Bitcoin-like
+  // Changez UNIQUEMENT si votre blockchain utilise des valeurs différentes
   bip32: {
-    public: 0x019DA462,   // ⚠️ DIFFÉRENT!
-    private: 0x019D9CFE   // ⚠️ DIFFÉRENT!
+    public: 0x0488B21E,         // xpub version (Bitcoin standard)
+    private: 0x0488ADE4          // xprv version (Bitcoin standard)
   },
-  pubKeyHash: 0x30,       // Adresses L...
-  scriptHash: 0x32,       // Adresses M...
-  wif: 0xB0               // ⚠️ DIFFÉRENT!
+  pubKeyHash: 0x00,             // Legacy address prefix (Bitcoin standard)
+  scriptHash: 0x05,             // P2SH address prefix (Bitcoin standard)
+  wif: 0x80                     // WIF private key format (Bitcoin standard)
 },
 ```
 
-#### **Section 5 : RPC NODES**
+⚠️ **IMPORTANT** : Si votre blockchain utilise des adresses Legacy/P2SH non-standard (première lettre qui change), voir [Cas particuliers](#cas-particuliers).
+
+#### Section 5 : Chemins de dérivation HD (CRITIQUE!)
+
 ```javascript
-// === RPC NODES ===
+HD_PATHS: {
+  legacy: "m/44'/0'/0'",        // Remplacez 0 par votre coin_type
+  p2sh: "m/49'/0'/0'",          // Remplacez 0 par votre coin_type
+  bech32: "m/84'/0'/0'",        // Remplacez 0 par votre coin_type
+  taproot: "m/86'/0'/0'"        // Remplacez 0 par votre coin_type
+},
+```
+
+**Exemple** : Si votre `coin_type = 0` (comme FixrdCoin ou Bitcoin), laissez tel quel.
+
+#### Section 6 : Explorateur de blocs
+
+```javascript
+EXPLORERS: {
+  primary: 'https://explorer.fixedcoin.org',    // URL de votre explorateur
+  fallback: 'https://explorer.fixedcoin.org',   // Même URL ou alternative
+  txPath: '/tx/',                                // Chemin pour les transactions
+  addressPath: '/address/'                       // Chemin pour les adresses
+},
+```
+
+**Comment trouver les chemins ?** Allez sur votre explorateur et regardez l'URL d'une transaction :
+- `https://explorer.com/tx/abc123` → `txPath: '/tx/'`
+- `https://explorer.com/transaction/abc123` → `txPath: '/transaction/'`
+
+#### Section 7 : Paramètres de transactions
+
+```javascript
+TRANSACTION: {
+  minFeeRate: 0.00001,          // Frais minimum (en COIN/kB)
+  dynamicFeeRate: 0.00001,      // Idem
+  
+  // Dust amounts (montants minimaux par type d'adresse, en satoshis)
+  dustAmounts: {
+    p2pkh: 546,
+    p2wpkh: 294,
+    p2sh: 540,
+    p2tr: 330
+  },
+  
+  // Laissez ces valeurs par défaut
+  maxUtxosPerBatch: 100,
+  maxTxVbytes: 99000,
+  minConsolidationFee: 0.00005,
+  dustRelayAmount: 3000
+},
+```
+
+#### Section 8 : Footer
+
+```javascript
+FOOTER: {
+  githubUrl: 'https://github.com/your-blockchain/your-coin',
+  officialSiteUrl: 'https://your-coin.org/',
+  officialSiteText: 'your-coin.org 🚀',
+  version: 'V3.0.0'
+},
+```
+
+#### Section 9 : Features (fonctionnalités)
+
+```javascript
+FEATURES: {
+  hdWallet: true,               // Support HD wallets
+  taproot: true,                // Support Taproot (mettez false si non supporté)
+  consolidation: true,          // Consolidation d'UTXOs
+  emailLogin: true,             // Login email/password
+  multiLanguage: true           // Support multilingue
+}
+```
+
+### 2.3 - Sauvegarder
+
+```bash
+# Dans nano :
+Ctrl + O  → Sauvegarder
+Entrée    → Confirmer
+Ctrl + X  → Quitter
+```
+
+---
+
+## 🖼️ Étape 3 : Ajouter le logo
+
+### 3.1 - Préparer le logo
+
+**Spécifications** :
+- Format : PNG
+- Taille : 256x256px ou 512x512px
+- Fond transparent recommandé
+
+### 3.2 - Uploader le logo
+
+```bash
+# Méthode 1 : SCP depuis votre PC
+scp /path/to/logo.png user@server:/var/www/wallet-YOUR-COIN/your-coin.png
+
+# Méthode 2 : wget depuis une URL
+cd /var/www/wallet-YOUR-COIN
+wget https://example.com/logo.png -O your-coin.png
+
+# Méthode 3 : Copier depuis le serveur
+cp /path/to/logo.png /var/www/wallet-YOUR-COIN/your-coin.png
+```
+
+### 3.3 - Définir les permissions
+
+```bash
+cd /var/www/wallet-YOUR-COIN
+sudo chown www-data:www-data your-coin.png
+sudo chmod 644 your-coin.png
+
+# Vérifier
+ls -la your-coin.png
+```
+
+---
+
+## ⚙️ Étape 4 : Configurer Nginx
+
+### 4.1 - Encoder les credentials RPC en Base64
+
+```bash
+# Remplacez user et pass par vos vraies valeurs
+echo -n "user:pass" | base64
+
+# Résultat exemple : dXNlcjpwYXNz
+# Notez cette valeur, vous en aurez besoin !
+```
+
+### 4.2 - Créer la configuration Nginx
+
+```bash
+sudo nano /etc/nginx/sites-available/wallet-your-coin.domain.com
+```
+
+**Collez cette configuration** (adaptez les valeurs) :
+
+```nginx
+server {
+    listen 80;
+    server_name wallet-your-coin.domain.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name wallet-your-coin.domain.com;
+
+    # Certificat SSL (sera généré par certbot)
+    ssl_certificate /etc/letsencrypt/live/wallet-your-coin.domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/wallet-your-coin.domain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://your-explorer.com; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;" always;
+
+    root /var/www/wallet-YOUR-COIN;
+    index index.html;
+
+    # API PHP (compteur de wallets)
+    location ~ ^/api/(get-counter\.php|increment-counter\.php)$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    # Proxy RPC principal
+    location /api/ {
+        proxy_connect_timeout 1s;
+        proxy_read_timeout 2s;
+        proxy_send_timeout 1s;
+
+        proxy_pass http://NODE_IP:NODE_PORT/;  # ← MODIFIEZ ICI
+        proxy_http_version 1.1;
+
+        proxy_set_header Authorization "Basic YOUR_BASE64_HERE";  # ← MODIFIEZ ICI
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+
+    # Proxy RPC de secours (optionnel)
+    location /api-custom/ {
+        proxy_connect_timeout 1s;
+        proxy_read_timeout 2s;
+        proxy_send_timeout 1s;
+
+        proxy_pass http://BACKUP_NODE_IP:BACKUP_NODE_PORT/;  # ← MODIFIEZ ICI
+        proxy_http_version 1.1;
+
+        proxy_set_header Authorization "Basic YOUR_BASE64_HERE";  # ← MODIFIEZ ICI
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+
+    # Proxy explorateur
+    location /explorer/ {
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 5s;
+        proxy_send_timeout 3s;
+
+        proxy_pass https://your-explorer.com/;  # ← MODIFIEZ ICI
+        proxy_http_version 1.1;
+
+        proxy_set_header Host your-explorer.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type' always;
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+
+    # Fichiers statiques
+    location / {
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+**À modifier dans le fichier ci-dessus** :
+1. `wallet-your-coin.domain.com` → Votre domaine
+2. `/var/www/wallet-YOUR-COIN` → Votre chemin
+3. `http://NODE_IP:NODE_PORT/` → IP:Port de votre nœud RPC
+4. `Basic YOUR_BASE64_HERE` → Le Base64 de l'étape 4.1
+5. `https://your-explorer.com/` → URL de votre explorateur
+
+### 4.3 - Activer le site (sans SSL pour l'instant)
+
+D'abord, créez une version HTTP simple pour générer le certificat SSL :
+
+```bash
+sudo nano /etc/nginx/sites-available/wallet-your-coin.domain.com
+```
+
+**Version temporaire HTTP** :
+
+```nginx
+server {
+    listen 80;
+    server_name wallet-your-coin.domain.com;
+
+    root /var/www/wallet-YOUR-COIN;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+```bash
+# Activer le site
+sudo ln -s /etc/nginx/sites-available/wallet-your-coin.domain.com /etc/nginx/sites-enabled/
+
+# Tester
+sudo nginx -t
+
+# Recharger
+sudo systemctl reload nginx
+```
+
+### 4.4 - Générer le certificat SSL
+
+```bash
+# Installer certbot si nécessaire
+sudo apt update
+sudo apt install certbot python3-certbot-nginx
+
+# Générer le certificat
+sudo certbot --nginx -d wallet-your-coin.domain.com
+```
+
+### 4.5 - Remplacer par la configuration complète
+
+Maintenant que le certificat existe, remplacez par la config complète de l'étape 4.2 :
+
+```bash
+sudo nano /etc/nginx/sites-available/wallet-your-coin.domain.com
+
+# → Collez la configuration complète de l'étape 4.2
+# → Sauvegardez
+
+# Tester
+sudo nginx -t
+
+# Recharger
+sudo systemctl reload nginx
+```
+
+### 4.6 - Configurer les permissions PHP
+
+```bash
+cd /var/www/wallet-YOUR-COIN
+sudo chown -R www-data:www-data data/
+sudo chmod 600 data/counter.txt
+```
+
+---
+
+## ✅ Étape 5 : Tester le wallet
+
+### 5.1 - Test 1 : Accès au wallet
+
+```bash
+# Ouvrez dans votre navigateur
+https://wallet-your-coin.domain.com
+```
+
+**Vérifiez** :
+- ✅ Le site se charge en HTTPS
+- ✅ Le logo s'affiche
+- ✅ Le nom de la blockchain est correct
+- ✅ Le symbole est correct partout
+
+### 5.2 - Test 2 : Connexion RPC
+
+Ouvrez la console navigateur (F12) et tapez :
+
+```javascript
+await window.rpc('getblockchaininfo')
+```
+
+**Résultat attendu** : Un objet JSON avec les infos de la blockchain :
+```javascript
+{
+  chain: "main",
+  blocks: 329,
+  headers: 329,
+  bestblockhash: "000000...",
+  ...
+}
+```
+
+**Si erreur** → Voir [Dépannage](#dépannage)
+
+### 5.3 - Test 3 : Génération d'adresses
+
+1. Cliquez sur **"Generate"**
+2. Notez le mnemonic (12 ou 24 mots)
+3. **Vérifiez les adresses affichées** :
+   - Bech32 : `yourprefix1q...`
+   - Taproot : `yourprefix1p...` (si supporté)
+
+### 5.4 - Test 4 : Vérification avec le nœud officiel
+
+**CRITIQUE** : Vérifiez que les adresses générées correspondent à celles du wallet officiel.
+
+#### Option A : Via iancoleman.io/bip39
+
+1. Allez sur https://iancoleman.io/bip39/
+2. Entrez votre mnemonic de test
+3. Sélectionnez votre blockchain dans la liste
+4. Comparez les adresses avec celles du wallet web
+
+⚠️ **Les adresses doivent être IDENTIQUES**
+
+#### Option B : Importer dans le wallet officiel
+
+1. Importez le mnemonic dans le wallet officiel
+2. Comparez les adresses
+
+### 5.5 - Test 5 : Import d'un wallet existant
+
+1. Créez un wallet de test avec le wallet officiel
+2. Exportez le mnemonic ou xprv
+3. Importez-le dans le wallet web
+4. **Vérifiez que les adresses correspondent**
+
+### 5.6 - Test 6 : Transaction de test
+
+⚠️ **Utilisez un montant minimal pour ce test !**
+
+1. Importez un wallet avec des fonds
+2. Cliquez sur "Send"
+3. Entrez une adresse de destination
+4. Entrez un petit montant
+5. Cliquez sur "Prepare"
+6. **Vérifiez le TX hex généré**
+7. Cliquez sur "Broadcast"
+8. Vérifiez dans l'explorateur que la TX a été diffusée
+
+---
+
+## 🚨 Dépannage
+
+### Problème : RPC ne répond pas
+
+**Symptômes** :
+```
+[RPC-MANAGER] Node 0 error: HTTP 500
+```
+
+**Solutions** :
+
+1. **Vérifier que le nœud RPC tourne** :
+```bash
+ps aux | grep your-coin
+```
+
+2. **Tester le RPC manuellement** :
+```bash
+curl --user rpcuser:rpcpass \
+  --data-binary '{"jsonrpc":"1.0","method":"getblockchaininfo","params":[]}' \
+  http://NODE_IP:NODE_PORT/
+```
+
+3. **Vérifier les logs Nginx** :
+```bash
+sudo tail -f /var/log/nginx/error.log
+```
+
+4. **Vérifier le firewall** (si le nœud est sur un serveur distant) :
+```bash
+# Sur le serveur du nœud
+sudo ufw allow from SERVER_WEB_IP to any port NODE_RPC_PORT
+```
+
+### Problème : Adresses générées incorrectes
+
+**Symptômes** :
+- Les adresses ne correspondent pas au wallet officiel
+- Format d'adresse invalide
+
+**Solutions** :
+
+1. **Vérifier le coin_type** dans `blockchain-config.js` :
+```javascript
+HD_PATHS: {
+  bech32: "m/84'/0'/0'",  // ← Le 0 doit être votre coin_type
+  taproot: "m/86'/0'/0'"
+}
+```
+
+2. **Vérifier le préfixe Bech32** :
+```javascript
+NETWORK: {
+  bech32: 'fix',  // ← Doit correspondre à vos adresses
+}
+```
+
+3. **Comparer avec iancoleman.io/bip39** avec le même mnemonic
+
+### Problème : Erreur "Address is not valid"
+
+**Symptômes** :
+```
+[RPC-MANAGER] Node error: Address is not valid
+```
+
+**Cause** : Le wallet essaie de scanner des formats d'adresses non supportés par votre blockchain.
+
+**Solution** : Désactiver les formats non supportés dans `blockchain-config.js` :
+
+```javascript
+HD_PATHS: {
+  legacy: null,       // Désactiver si non supporté
+  p2sh: null,         // Désactiver si non supporté
+  bech32: "m/84'/0'/0'",
+  taproot: "m/86'/0'/0'"
+}
+```
+
+### Problème : Logo ne s'affiche pas
+
+**Solutions** :
+
+1. **Vérifier que le fichier existe** :
+```bash
+ls -la /var/www/wallet-YOUR-COIN/your-coin.png
+```
+
+2. **Vérifier les permissions** :
+```bash
+sudo chmod 644 /var/www/wallet-YOUR-COIN/your-coin.png
+sudo chown www-data:www-data /var/www/wallet-YOUR-COIN/your-coin.png
+```
+
+3. **Vider le cache du navigateur** : `Ctrl + Shift + R`
+
+### Problème : Certificat SSL expiré
+
+```bash
+# Renouveler manuellement
+sudo certbot renew
+
+# Ou forcer le renouvellement
+sudo certbot renew --force-renewal
+```
+
+---
+
+## 🔬 Cas particuliers
+
+### Cas 1 : Adresses Legacy non-standard
+
+**Symptôme** : Les adresses Legacy de votre blockchain ont des premières lettres qui changent (a, b, d, e, f, etc.) au lieu d'être identiques.
+
+**Exemple** : FixrdCoin
+
+**Solution** : Désactiver le support Legacy/P2SH et utiliser uniquement Bech32/Taproot :
+
+```javascript
+HD_PATHS: {
+  legacy: null,               // Désactivé
+  p2sh: null,                 // Désactivé
+  bech32: "m/84'/0'/0'",      // Activé
+  taproot: "m/86'/0'/0'"      // Activé
+}
+```
+
+### Cas 2 : Blockchain sans Taproot
+
+**Exemple** : Dogecoin, anciennes blockchains
+
+**Solution** :
+
+```javascript
+FEATURES: {
+  taproot: false,  // Désactiver Taproot
+  // ...
+}
+
+HD_PATHS: {
+  legacy: "m/44'/3'/0'",
+  p2sh: "m/49'/3'/0'",
+  bech32: "m/84'/3'/0'",
+  taproot: null              // Désactivé
+}
+```
+
+### Cas 3 : Nœud RPC sur un serveur distant
+
+**Configuration du nœud distant** (`~/.your-coin/your-coin.conf`) :
+
+```conf
+# Écouter sur toutes les interfaces
+rpcbind=0.0.0.0
+
+# Autoriser l'IP du serveur web
+rpcallowip=IP_SERVEUR_WEB
+
+# Port RPC
+rpcport=24761
+```
+
+**Redémarrer le nœud** :
+```bash
+your-coin-cli stop
+your-coind -daemon
+```
+
+**Firewall** :
+```bash
+sudo ufw allow from IP_SERVEUR_WEB to any port 24761
+```
+
+### Cas 4 : Plusieurs nœuds RPC (failover)
+
+Si vous avez plusieurs nœuds RPC pour la redondance :
+
+**Dans `blockchain-config.js`** :
+```javascript
 RPC_NODES: [
   {
-    url: '/api/',         // Proxy Nginx vers ton nœud
-    priority: 1,          // Plus bas = prioritaire
-    timeout: 2000         // Timeout en ms
+    url: '/api/',           // Nœud principal
+    priority: 1,
+    timeout: 2000
   },
   {
-    url: '/api-custom/',  // Nœud de secours (optionnel)
+    url: '/api-custom/',    // Nœud de secours
     priority: 2,
     timeout: 2000
   }
 ],
 ```
 
-**Tu peux garder tel quel** - La configuration Nginx gérera le proxy vers ton nœud.
-
-#### **Section 6 : BLOCKCHAIN EXPLORERS**
-```javascript
-// === BLOCKCHAIN EXPLORERS ===
-EXPLORERS: {
-  primary: 'https://blockstream.info',           // Explorateur principal
-  fallback: 'https://mempool.space',             // Explorateur de secours
-  txPath: '/tx/',               // Chemin pour afficher une TX
-  addressPath: '/address/'      // Chemin pour afficher une adresse
-},
-```
-
-**Exemple pour Litecoin** :
-```javascript
-EXPLORERS: {
-  primary: 'https://blockchair.com/litecoin',
-  fallback: 'https://ltc.tokenview.io',
-  txPath: '/transaction/',      // ⚠️ Peut être différent!
-  addressPath: '/address/'
-},
-```
-
-#### **Section 7 : TRANSACTION PARAMETERS**
-```javascript
-// === TRANSACTION PARAMETERS ===
-TRANSACTION: {
-  minFeeRate: 0.00001,          // Frais minimum (BTC/kB)
-  dynamicFeeRate: 0.00001,      // Frais par défaut si RPC échoue
-  maxUtxosPerBatch: 100,        // Max UTXOs par consolidation
-  maxTxVbytes: 99000,           // Taille max TX
-  
-  // Montants "dust" par type d'adresse (en satoshis)
-  dustAmounts: {
-    p2pkh: 546,       // Legacy
-    p2wpkh: 294,      // SegWit
-    p2sh: 540,        // P2SH-SegWit
-    p2tr: 330         // Taproot
-  },
-  
-  minConsolidationFee: 0.00005,
-  dustRelayAmount: 3000
-},
-```
-
-**Exemple pour Dogecoin** (fees plus élevés) :
-```javascript
-TRANSACTION: {
-  minFeeRate: 0.01,             // ⚠️ 1000x plus élevé!
-  dynamicFeeRate: 0.01,
-  maxUtxosPerBatch: 100,
-  maxTxVbytes: 99000,
-  dustAmounts: {
-    p2pkh: 10000000,            // ⚠️ 100 DOGE!
-    p2wpkh: 5000000,
-    p2sh: 10000000,
-    p2tr: 5000000
-  },
-  minConsolidationFee: 0.01,
-  dustRelayAmount: 10000000
-},
-```
-
-#### **Section 8 : HD DERIVATION PATHS** ⚠️ CRITIQUE!
-```javascript
-// === HD DERIVATION PATHS ===
-HD_PATHS: {
-  legacy: "m/44'/0'/0'",    // Le 0 = coin_type Bitcoin
-  p2sh: "m/49'/0'/0'",
-  bech32: "m/84'/0'/0'",
-  taproot: "m/86'/0'/0'"
-},
-```
-
-**Exemple pour Litecoin** (coin_type = 2) :
-```javascript
-HD_PATHS: {
-  legacy: "m/44'/2'/0'",    // ⚠️ 2 au lieu de 0!
-  p2sh: "m/49'/2'/0'",      // ⚠️ 2 au lieu de 0!
-  bech32: "m/84'/2'/0'",    // ⚠️ 2 au lieu de 0!
-  taproot: "m/86'/2'/0'"    // ⚠️ 2 au lieu de 0!
-},
-```
-
-**Liste des coin_type** :
-- Bitcoin: 0
-- Testnet: 1
-- Litecoin: 2
-- Dogecoin: 3
-- Dash: 5
-
-#### **Section 9 : HD WALLET CONFIG**
-```javascript
-// === HD WALLET CONFIG ===
-HD_CONFIG: {
-  startRange: 512,          // Range initial de scan
-  maxRange: 50000,          // Range maximum
-  rangeSafety: 16,
-  scanChunk: 50,
-  scanMaxChunks: 40,
-  defaultWordCount: 12      // 12 ou 24 mots
-},
-```
-
-**Tu peux garder tel quel** - Ces valeurs fonctionnent pour toutes les blockchains.
-
-#### **Section 10 : VALIDATION PATTERNS**
-```javascript
-// === VALIDATION PATTERNS ===
-VALIDATION: {
-  bech32Address: /^bc1[02-9ac-hj-np-z]{6,87}$/,      // Validation Bech32
-  bech32mAddress: /^bc1p[02-9ac-hj-np-z]{6,87}$/,    // Validation Taproot
-  legacyAddress: /^[13][1-9A-HJ-NP-Za-km-z]{25,39}$/, // Validation Legacy
-  // ... (autres patterns standards)
-},
-```
-
-**Exemple pour Litecoin** :
-```javascript
-VALIDATION: {
-  bech32Address: /^ltc1[02-9ac-hj-np-z]{6,87}$/,     // ltc au lieu de bc
-  bech32mAddress: /^ltc1p[02-9ac-hj-np-z]{6,87}$/,
-  legacyAddress: /^[LM3][1-9A-HJ-NP-Za-km-z]{25,39}$/, // L, M ou 3
-  // ...
-},
-```
-
-#### **Section 11 : FOOTER**
-```javascript
-// === FOOTER ===
-FOOTER: {
-  githubUrl: 'https://github.com/bitcoin/bitcoin',
-  officialSiteUrl: 'https://bitcoin.org/',
-  officialSiteText: 'bitcoin.org 🚀',
-  version: 'V3.0.0'
-},
-```
-
-**Exemple pour Litecoin** :
-```javascript
-FOOTER: {
-  githubUrl: 'https://github.com/litecoin-project/litecoin',
-  officialSiteUrl: 'https://litecoin.org/',
-  officialSiteText: 'litecoin.org ⚡',
-  version: 'V3.0.0'
-},
-```
-
-#### **Section 12 : FEATURES**
-```javascript
-// === FEATURES ===
-FEATURES: {
-  hdWallet: true,           // Support HD wallets
-  taproot: true,            // Support Taproot (false pour Dogecoin)
-  consolidation: true,      // Consolidation d'UTXOs
-  emailLogin: true,         // Login email/password
-  multiLanguage: true       // Support multilingue
-}
-```
-
-**Exemple pour Dogecoin** (pas de Taproot) :
-```javascript
-FEATURES: {
-  hdWallet: true,
-  taproot: false,           // ⚠️ Dogecoin n'a pas Taproot
-  consolidation: true,
-  emailLogin: true,
-  multiLanguage: true
-}
-```
-
-### 4.3 - Sauvegarder
-
-```bash
-# Dans nano
-Ctrl + O  (Write Out)
-Entrée    (Confirmer)
-Ctrl + X  (Exit)
-```
+**Dans Nginx** : Configurez les deux `location /api/` et `location /api-custom/` avec des nœuds différents.
 
 ---
 
-## 🖼️ ÉTAPE 5 : AJOUTER LE LOGO
-
-### 5.1 - Préparer le logo
-
-**Requis** :
-- Format : PNG
-- Taille recommandée : 256x256px ou 512x512px
-- Fond transparent (si possible)
-
-### 5.2 - Uploader le logo
-
-```bash
-# Méthode 1 : SCP depuis ton ordinateur
-scp /chemin/local/litecoin.png user@serveur:/var/www/wallet-bc2/ltc.png
-
-# Méthode 2 : wget depuis une URL
-cd /var/www/wallet-bc2
-wget https://example.com/litecoin.png -O ltc.png
-
-# Méthode 3 : Copier depuis un autre endroit du serveur
-cp /chemin/vers/litecoin.png /var/www/wallet-bc2/ltc.png
-```
-
-### 5.3 - Vérifier les permissions
-
-```bash
-sudo chown www-data:www-data /var/www/wallet-bc2/ltc.png
-sudo chmod 644 /var/www/wallet-bc2/ltc.png
-```
-
----
-
-## ⚙️ ÉTAPE 6 : CONFIGURER NGINX
-
-### 6.1 - Encoder les credentials RPC en Base64
-
-```bash
-# Remplace 'rpcuser' et 'rpcpassword' par tes vraies valeurs
-echo -n "rpcuser:rpcpassword" | base64
-
-# Résultat exemple : cnBjdXNlcjpycGNwYXNzd29yZA==
-```
-
-### 6.2 - Éditer la configuration Nginx
-
-```bash
-sudo nano /etc/nginx/sites-available/votre-domaine
-```
-
-### 6.3 - Configuration RPC Proxy
-
-**Trouve cette section** :
-```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:8332/;      # ← IP:Port de ton nœud
-    proxy_set_header Authorization "Basic BASE64_ICI";  # ← Colle ton Base64
-    # ...
-}
-```
-
-**Modifie** :
-```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:9332/;      # ← Port Litecoin (exemple)
-    proxy_set_header Authorization "Basic cnBjdXNlcjpycGNwYXNzd29yZA==";
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    
-    add_header 'Access-Control-Allow-Origin' '*' always;
-    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-}
-```
-
-**Si tu as un second nœud** (`/api-custom/`) :
-```nginx
-location /api-custom/ {
-    proxy_pass http://192.168.1.100:9332/;  # ← Autre nœud
-    proxy_set_header Authorization "Basic AUTRE_BASE64";
-    # ... même config que ci-dessus
-}
-```
-
-### 6.4 - Tester et recharger Nginx
-
-```bash
-# Tester la configuration
-sudo nginx -t
-
-# Si OK, recharger
-sudo systemctl reload nginx
-
-# Vérifier le statut
-sudo systemctl status nginx
-```
-
----
-
-## ✅ ÉTAPE 7 : TESTER LE WALLET
-
-### 7.1 - Ouvrir le wallet dans le navigateur
-
-```
-https://votre-domaine.com
-```
-
-### 7.2 - Test 1 : Vérifier l'affichage
-
-✅ **Vérifie** :
-- [ ] Le titre affiche le bon nom (ex: "Litecoin Wallet")
-- [ ] Le logo s'affiche correctement
-- [ ] Le symbole est correct partout (LTC au lieu de BC2)
-- [ ] Le footer affiche les bons liens
-
-### 7.3 - Test 2 : Générer une clé HD
-
-1. Clic sur "Generate"
-2. **Copie le mnemonic** (24 mots)
-3. **Vérifie les adresses générées** :
-   - Format Bech32 : `ltc1...` (pour Litecoin)
-   - Format Taproot : `ltc1p...` (si supporté)
-
-**Validation** :
-- Utilise un outil externe pour vérifier (ex: iancoleman.io/bip39)
-- Entre le même mnemonic
-- Sélectionne "Litecoin" (ou ta blockchain)
-- Vérifie que les adresses correspondent
-
-### 7.4 - Test 3 : Importer un wallet existant
-
-1. Utilise un mnemonic de test connu
-2. Importe-le dans le wallet
-3. Vérifie que les adresses correspondent à celles attendues
-
-### 7.5 - Test 4 : Vérifier la connexion RPC
-
-**Console navigateur** (F12) :
-```javascript
-// Teste la connexion RPC
-await window.rpc('getblockchaininfo')
-
-// Résultat attendu :
-// { chain: "main", blocks: 123456, ... }
-```
-
-Si erreur :
-- Vérifie que le nœud RPC est démarré
-- Vérifie la config Nginx
-- Vérifie les credentials Base64
-
-### 7.6 - Test 5 : Transaction test (optionnel)
-
-⚠️ **Utilise d'abord un testnet ou des montants minimes !**
-
-1. Importe un wallet avec des fonds
-2. Va dans "Send"
-3. Entre une adresse de test
-4. Entre un petit montant
-5. Clic "Prepare"
-6. Vérifie le TX hex généré
-7. Clic "Broadcast" (si tu veux vraiment envoyer)
-
----
-
-## 🚨 ÉTAPE 8 : DÉPANNAGE
-
-### Problème 1 : Les adresses générées sont incorrectes
-
-**Symptômes** :
-- Adresses commencent par le mauvais préfixe
-- Adresses invalides selon un validateur externe
-
-**Solution** :
-```javascript
-// Vérifie dans blockchain-config.js :
-NETWORK: {
-  bech32: 'ltc',        // ← Doit correspondre au préfixe attendu
-  pubKeyHash: 0x30,     // ← Doit correspondre aux specs de la blockchain
-  // ...
-}
-```
-
-### Problème 2 : RPC ne répond pas
-
-**Symptômes** :
-- Erreur dans la console : "RPC call failed"
-- Impossible de récupérer le solde
-
-**Solution** :
-1. Vérifie que le nœud est lancé :
-```bash
-ps aux | grep litecoind  # (ou bitcoin, dogecoin, etc.)
-```
-
-2. Vérifie la config du nœud :
-```bash
-cat ~/.litecoin/litecoin.conf
-# Doit contenir :
-# server=1
-# rpcuser=...
-# rpcpassword=...
-```
-
-3. Teste le RPC manuellement :
-```bash
-curl --user rpcuser:rpcpass --data-binary '{"jsonrpc":"1.0","method":"getblockchaininfo","params":[]}' http://127.0.0.1:9332/
-```
-
-4. Vérifie Nginx :
-```bash
-sudo tail -f /var/log/nginx/error.log
-```
-
-### Problème 3 : Erreur "Invalid HD path"
-
-**Symptômes** :
-- Erreur lors de l'import d'un mnemonic HD
-- Adresses HD incorrectes
-
-**Solution** :
-```javascript
-// Vérifie dans blockchain-config.js :
-HD_PATHS: {
-  legacy: "m/44'/2'/0'",   // ← Le 2 doit être le coin_type de ta blockchain
-  // ...
-}
-```
-
-**Coin types** :
-- Bitcoin: 0
-- Litecoin: 2
-- Dogecoin: 3
-- etc.
-
-### Problème 4 : Transactions échouent
-
-**Symptômes** :
-- Erreur "Insufficient funds" alors que tu as des fonds
-- TX rejetée par le réseau
-
-**Solution** :
-```javascript
-// Ajuste les fees dans blockchain-config.js :
-TRANSACTION: {
-  minFeeRate: 0.001,      // ← Augmente si nécessaire
-  dustAmounts: {
-    p2pkh: 10000,         // ← Ajuste selon la blockchain
-  }
-}
-```
-
-### Problème 5 : Logo ne s'affiche pas
-
-**Solution** :
-1. Vérifie le chemin :
-```bash
-ls -la /var/www/wallet-bc2/ltc.png
-```
-
-2. Vérifie les permissions :
-```bash
-sudo chmod 644 /var/www/wallet-bc2/ltc.png
-```
-
-3. Vérifie dans blockchain-config.js :
-```javascript
-LOGO_PATH: './ltc.png',   // ← Doit correspondre au nom du fichier
-```
-
-4. Vide le cache du navigateur (Ctrl+F5)
-
----
-
-## 📋 CHECKLIST FINALE
-
-### Configuration complète
-
-- [ ] `blockchain-config.js` modifié avec toutes les bonnes valeurs
-- [ ] Logo ajouté à la racine (`./nom.png`)
-- [ ] Nginx configuré avec le bon proxy RPC
-- [ ] Credentials RPC encodés en Base64
-- [ ] Nginx rechargé sans erreur
+## 📋 Checklist finale
+
+Avant de mettre en production :
+
+### Configuration
+- [ ] `blockchain-config.js` modifié avec les bonnes valeurs
+- [ ] coin_type vérifié avec le wallet officiel
+- [ ] Logo ajouté et permissions OK
+- [ ] Configuration Nginx complète
+- [ ] Certificat SSL valide
 
 ### Tests
-
-- [ ] Le wallet s'affiche avec le bon nom et logo
-- [ ] Génération de clé HD fonctionne
-- [ ] Adresses générées sont correctes (vérifiées avec outil externe)
+- [ ] Site accessible en HTTPS
+- [ ] RPC répond (console : `await window.rpc('getblockchaininfo')`)
+- [ ] Génération d'adresses fonctionne
+- [ ] Adresses correspondent au wallet officiel (vérifiées avec iancoleman.io)
 - [ ] Import de wallet existant fonctionne
-- [ ] Connexion RPC fonctionne (console navigateur)
-- [ ] Affichage du solde fonctionne
-- [ ] Transaction test réussie (optionnel)
+- [ ] Balance s'affiche correctement
+- [ ] Transaction de test réussie
 
-### Production
-
-- [ ] SSL/HTTPS configuré
-- [ ] Sauvegarde de la config Nginx
-- [ ] Documentation des changements
+### Sécurité
 - [ ] Nœud RPC sécurisé (firewall)
+- [ ] Credentials RPC forts
+- [ ] HTTPS activé avec HSTS
+- [ ] Sauvegarde de la configuration effectuée
 
 ---
 
-## 📞 RESSOURCES UTILES
+## 📞 Ressources
 
-### Où trouver les paramètres réseau
-
-1. **GitHub officiel** :
-   - `src/chainparams.cpp` → Tous les paramètres réseau
-   - `src/validation.cpp` → Règles de validation
-
-2. **Documentation** :
-   - Bitcoin Wiki
-   - Blockchain Explorer (blockchair.com)
-   - Developer documentation officielle
-
-3. **Coin Types (BIP44)** :
-   - https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-
-4. **Outil de vérification** :
-   - https://iancoleman.io/bip39/ (pour tester les adresses HD)
-
-### Exemples de configurations complètes
-
-Dans l'artefact suivant, je te fournirai le fichier `blockchain-config.js` complet et commenté.
+- [Liste SLIP-0044 (coin types)](https://github.com/satoshilabs/slips/blob/master/slip-0044.md)
+- [Outil BIP39/BIP44](https://iancoleman.io/bip39/)
+- [Documentation Bitcoin Core RPC](https://developer.bitcoin.org/reference/rpc/)
 
 ---
 
-## ⏱️ RÉCAPITULATIF : Ce que tu dois faire
+## 🎉 Félicitations !
 
-1. **Collecter les infos** (15 min)
-   - Nom, symbole, logo
-   - Paramètres réseau (chainparams.cpp)
-   - Coin type (BIP44)
-   - URL explorateur
+Votre wallet est maintenant configuré pour votre blockchain ! 🚀
 
-2. **Modifier blockchain-config.js** (5 min)
-   - Remplacer les valeurs par celles de ta blockchain
+Si vous rencontrez des problèmes non couverts par ce guide, vérifiez :
+1. Les logs du nœud RPC
+2. Les logs Nginx (`/var/log/nginx/error.log`)
+3. La console navigateur (F12)
 
-3. **Ajouter le logo** (2 min)
-   - Upload à la racine du projet
-
-4. **Configurer Nginx** (5 min)
-   - Proxy RPC avec credentials Base64
-
-5. **Tester** (5-10 min)
-   - Génération, import, affichage, RPC
-
-**Total : 30-40 minutes maximum**
-
----
-
-✅ **Prêt pour le fichier blockchain-config.js complet ?**
-
-Dans le prochain artefact, je vais te fournir le fichier final avec TOUS les commentaires explicatifs en anglais, prêt à être copié-collé.
+**Bon launch ! 🎊**
