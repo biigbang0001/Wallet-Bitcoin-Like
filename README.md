@@ -32,7 +32,7 @@ Ce wallet web est conçu pour être facilement adapté à **n'importe quelle blo
 ### Ce qui reste identique
 - ❌ Tous les autres fichiers JavaScript
 - ❌ La structure HTML
-- ❌ Les traductions (optionnel)
+- ❌ Les traductions 
 
 ---
 
